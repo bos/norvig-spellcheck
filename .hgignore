@@ -1,0 +1,7 @@
+\.(?:aux|eventlog|h[ip]|log|[oa]|orig|prof|ps|pyc|rej|swp|tix)$
+~$
+^big.txt$
+^Norvig$
+
+syntax: glob
+.\#*
