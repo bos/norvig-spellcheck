@@ -3,6 +3,7 @@
 module Main (main) where
 
 import Control.Monad
+import Data.Hashable (Hashable)
 import Data.List
 import Data.Monoid
 import Data.Time.Clock
@@ -12,6 +13,7 @@ import qualified Data.ByteString.Char8 as B8
 import qualified Data.HashMap.Strict as M
 import qualified Data.HashSet as S
 
+asciiWords :: B8.ByteString -> [B8.ByteString]
 asciiWords = go . lower
   where go bs | B.null pfx = []
               | otherwise = w : go ws
@@ -22,9 +24,11 @@ asciiWords = go . lower
           where l c | c >= 65 && c <= 90 = c + 32
                     | otherwise          = c
 
+train :: B8.ByteString -> M.HashMap B8.ByteString Int
 train = foldl' go M.empty . asciiWords
   where go m w = M.insertWith (const (+1)) w (2::Int) m
 
+edits1 :: B8.ByteString -> S.HashSet B8.ByteString
 edits1 word = S.fromList . concat $ [
                 [a <> B.tail b | (a,b) <- initSplits]
               , [let (h,t) = B.splitAt 2 b
@@ -37,11 +41,16 @@ edits1 word = S.fromList . concat $ [
     initSplits = init splits
     alphabet = map B8.singleton ['a'..'z']
 
+known :: (Eq a, Hashable a) => S.HashSet a -> M.HashMap a a1 -> S.HashSet a
 known word nwords = S.filter (`M.member` nwords) word
 
+knownEdits2 :: B8.ByteString -> M.HashMap B8.ByteString a
+               -> S.HashSet B8.ByteString
 knownEdits2 word nwords = S.foldl' go S.empty (edits1 word)
   where go s w = S.union s (known (edits1 w) nwords)
 
+correct :: (Num a, Ord a) => B8.ByteString -> M.HashMap B8.ByteString a
+           -> B8.ByteString
 correct word nwords = snd . S.foldl' best (0,"") $
     known (S.singleton word) nwords ||| known (edits1 word) nwords |||
     knownEdits2 word nwords ||| S.singleton word
@@ -52,6 +61,7 @@ correct word nwords = snd . S.foldl' best (0,"") $
     a ||| b = if S.null a then b else a
     infixr 2 |||
 
+timed :: String -> IO b -> IO b
 timed desc act = do
   start <- getCurrentTime
   !ret <- act
@@ -59,6 +69,7 @@ timed desc act = do
   putStrLn $ desc ++ ": " ++ show (end `diffUTCTime` start)
   return ret
 
+main :: IO ()
 main = do
   nwords <- timed "train" (train `fmap` B.readFile "big.txt")
   args <- getArgs
